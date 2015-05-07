@@ -36,6 +36,12 @@ class SteeringDemo : public Application
     aicore::Seek *seek;
     aicore::Flee *flee;
 	aicore::Wander *wander;
+	aicore::Arrive *arrive;
+	aicore::Align *align;
+
+	/* DELEGATED BEHAVIORS */
+	aicore::Pursue *pursue;
+	aicore::Evade *evade;
 
     /** Holds the currently used behaviours. */
     aicore::SteeringBehaviour **current;
@@ -60,6 +66,7 @@ SteeringDemo::SteeringDemo()
     Application()
 {
     static const aicore::real accel = (aicore::real)20.0;
+	static const aicore::real prediction = (aicore::real) 10.0;
 
     kinematic = new aicore::Kinematic[2];
 
@@ -79,6 +86,10 @@ SteeringDemo::SteeringDemo()
     seek = new aicore::Seek[2];
     flee = new aicore::Flee[2];
     wander = new aicore::Wander[2];
+	arrive = new aicore::Arrive[2];
+	align = new aicore::Align[2];
+	pursue = new aicore::Pursue[2];
+	evade = new aicore::Evade[2];
 
     for (unsigned i = 0; i < 2; i++) {
         seek[i].character = &kinematic[i];
@@ -93,6 +104,31 @@ SteeringDemo::SteeringDemo()
         wander[i].maxAcceleration = accel;
 		wander[i].volatility = (aicore::real)20.0;
 		wander[i].turnSpeed = (aicore::real)2.0;
+
+		arrive[i].character = &kinematic[i];
+		arrive[i].target = &kinematic[1 - i].position;
+		arrive[i].maxAcceleration = accel;
+		arrive[i].targetRadius = 5.0f;
+		arrive[i].slowRadius = 10.0f;
+
+		align[i].character = &kinematic[i];
+		align[i].targetOrientation = &kinematic[1 - i].orientation;
+		align[i].maxAngularAcceleration = aicore::M_PI_4;
+		align[i].targetRadius = aicore::M_PI / 10.0;
+		align[i].slowRadius = aicore::M_PI/ 5.0;
+
+		pursue[i].character = &kinematic[i];
+		pursue[i].target = &kinematic[1 - i].position;
+		pursue[i].targetVelocity = &kinematic[1 - i].velocity;
+		pursue[i].maxPrediction = prediction;
+		pursue[i].maxAcceleration = accel;
+
+		evade[i].character = &kinematic[i];
+		evade[i].target = &kinematic[1 - i].position;
+		evade[i].targetVelocity = &kinematic[1 - i].velocity;
+		evade[i].maxPrediction = prediction;
+		evade[i].maxAcceleration = accel;
+
     }
 
     // Set the current behaviours
@@ -112,13 +148,14 @@ SteeringDemo::~SteeringDemo()
     delete[] seek;
     delete[] flee;
     delete[] wander;
+	delete[] arrive;
 
     delete[] current;
     delete[] status;
 }
 
 static const char *defaultHelp[] = {
-    "AI4G: Steering Demo",
+    "AI4G: Steering Demo1",
     "H - Toggle help.",
     "",
     "Red character:",
@@ -126,12 +163,20 @@ static const char *defaultHelp[] = {
     "W - Seek",
     "E - Flee",
     "R - Wander",
+	"T - Arrive",
+	"Y - Align",
+	"U - Pursue",
+	"I - Evade",
     "",
     "Green character:",
     "A - Stationary",
     "S - Seek",
     "D - Flee",
 	"F - Wander",
+	"G - Arrive",
+	"J - Align",
+	"K - Pursue",
+	"L - Evade"
 };
 
 void SteeringDemo::getHelpText(const char*** lines,
@@ -167,6 +212,22 @@ bool SteeringDemo::key(unsigned char key)
 		current[0] = &wander[0];
 		status[0] = "Wander";
 		return true;
+	case 'T': case 't':
+		current[0] = &arrive[0];
+		status[0] = "Arrive";
+		return true;
+	case 'Y': case 'y':
+		current[0] = &align[0];
+		status[0] = "Align";
+		return true;
+	case 'U': case 'u':
+		current[0] = &pursue[0];
+		status[0] = "Pursue";
+		return true;
+	case 'I': case 'i':
+		current[0] = &evade[0];
+		status[0] = "Evade";
+		return true;
 
     case 'A': case 'a':
         current[1] = NULL;
@@ -183,6 +244,22 @@ bool SteeringDemo::key(unsigned char key)
 	case 'F': case 'f':
 		current[1] = &wander[1];
 		status[1] = "Wander";
+		return true;
+	case 'G': case 'g':
+		current[1] = &arrive[1];
+		status[1] = "Arrive";
+		return true;
+	case 'J': case 'j':
+		current[1] = &align[1];
+		status[1] = "Align";
+		return true;
+	case 'K': case 'k':
+		current[1] = &pursue[1];
+		status[1] = "Pursue";
+		return true;
+	case 'L': case 'l':
+		current[1] = &evade[1];
+		status[1] = "Evade";
 		return true;
     }
 
@@ -235,13 +312,17 @@ void SteeringDemo::update()
         if (current[i]) current[i]->getSteering(&steer);
         else steer.clear();
 
-        // Update the kinematic
-        kinematic[i].integrate(steer, (aicore::real)0.95, duration);
-        kinematic[i].setOrientationFromVelocity();
+		if (current[i])
+		{
+			// Update the kinematic
+			kinematic[i].integrate(steer, (aicore::real)0.95, duration);
+			if (current[i] != &align[i])
+				kinematic[i].setOrientationFromVelocity();
 
-        // Check for maximum speed
-        kinematic[i].trimMaxSpeed((aicore::real)20.0);
-
+			// Check for maximum speed
+			kinematic[i].trimMaxSpeed((aicore::real)20.0);
+		}
+		
         // Keep in bounds of the world
         TRIM_WORLD(kinematic[i].position.x);
         TRIM_WORLD(kinematic[i].position.z);

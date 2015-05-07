@@ -42,6 +42,168 @@ namespace aicore
         }
     }
 
+	void Arrive::getSteering(SteeringOutput* output)
+	{
+		float maxSpeed = 10.0f;
+
+		// Get Direction to the target
+		Vector3 direction = *target - character->position;
+		
+		// check if we are there
+		if (direction.magnitude() < targetRadius)
+			return;
+
+		// Check if we are outside the slow radius, then go max speed
+		float targetSpeed = maxSpeed;
+		if (direction.magnitude() <= slowRadius)
+		{
+			targetSpeed = maxSpeed * direction.magnitude() / slowRadius;
+		}
+
+		Vector3 targetVelocity = direction;
+		targetVelocity.normalise();
+		targetVelocity *= targetSpeed;
+
+		// Acceleration tries to get to the target velocity
+		output->linear = targetVelocity - character->velocity;
+		output->linear = output->linear * (1.0f / 0.1f);
+
+		// check max acceleration
+		if (output->linear.magnitude() > maxAcceleration)
+		{
+			output->linear.normalise();
+			output->linear *= maxAcceleration;
+		}
+
+		output->angular = 0;
+	}
+
+	void VelocityMatch::getSteering(SteeringOutput* output)
+	{
+		// Acceleration tries to get to the target velocity
+		output->linear = *targetVelocity - character->velocity;
+		output->linear = output->linear * (1.0 / timeToTarget);
+
+		// Check if steering is too fast
+		if (output->linear.squareMagnitude() > maxAcceleration)
+		{
+			output->linear.normalise();
+			output->linear = output->linear * maxAcceleration;
+		}
+
+		// Angular = 0
+		output->angular = 0;
+	}
+
+	void Align::getSteering(SteeringOutput* output)
+	{
+		real rotation = *targetOrientation - character->orientation;
+
+		while (rotation > aicore::M_PI || rotation < -aicore::M_PI)
+		{
+			if (rotation > aicore::M_PI)
+				rotation -= aicore::M_2PI;
+			else if (rotation < -aicore::M_PI)
+				rotation += aicore::M_2PI;
+		}
+
+
+		real rotationSize = abs(rotation);
+
+		// Check if we are there, return no steering
+		if (rotationSize < targetRadius)
+			return;
+
+		// If we are outside the slow radius then use maximum rotation
+		real targetRotation = maxRotation;
+		if (rotationSize <= slowRadius)
+		{
+			targetRotation = maxRotation * rotationSize / slowRadius;
+		}
+
+		// The final target rotation combines
+		// speed (already in the variable) and direction
+		targetRotation *= rotation / rotationSize;
+
+		// Acceleration tries to get to the target rotation
+		output->angular = targetRotation - character->rotation;
+		output->angular /= 0.1;
+
+		// Check if acceleration is too great
+		real angularAcceleration = abs(output->angular);
+		if (angularAcceleration > maxAngularAcceleration)
+		{
+			output->angular /= angularAcceleration;
+			output->angular *= maxAngularAcceleration;
+		}
+
+		output->linear.x = 0;
+		output->linear.y = 0;
+		output->linear.z = 0;
+	}
+
+	void Pursue::getSteering(SteeringOutput* output)
+	{
+		// Calculate the target to delegate to seek
+		// Work out the distance to target
+		Vector3 direction = *target - character->position;
+		real distance = direction.squareMagnitude();
+
+		// Work out current speed
+		real speed = character->velocity.squareMagnitude();
+
+		// Check if speed is too small to give a reseonable
+		// prediction time
+		real prediction = 0.0;
+		if (speed <= distance / maxPrediction)
+			prediction = maxPrediction;
+		// otherwise calculate the prediction time
+		else
+			prediction = distance / speed;
+
+		// Seek Object
+		Seek seek;
+
+		// Put the target together
+		Vector3 explicitTarget = *target + *targetVelocity * prediction;
+		seek.target = &explicitTarget;
+		seek.character = character;
+		seek.maxAcceleration = maxAcceleration;
+
+		seek.getSteering(output);
+	}
+
+	void Evade::getSteering(SteeringOutput* output)
+	{
+		// Calculate the target to delegate to seek
+		// Work out the distance to target
+		Vector3 direction = character->position - *target;
+		real distance = direction.squareMagnitude();
+
+		// Work out current speed
+		real speed = character->velocity.squareMagnitude();
+
+		// Check if speed is too small to give a reseonable
+		// prediction time
+		real prediction = 0.0;
+		if (speed <= distance / maxPrediction)
+			prediction = maxPrediction;
+		// otherwise calculate the prediction time
+		else
+			prediction = distance / speed;
+
+		// Flee Object
+		Flee flee;
+
+		// Put the target together
+		Vector3 explicitTarget = *target + *targetVelocity * prediction;
+		flee.target = &explicitTarget;
+		flee.character = character;
+		flee.maxAcceleration = maxAcceleration;
+
+		flee.getSteering(output);
+	}
+
 	SeekWithInternalTarget::SeekWithInternalTarget()
 	{
 		// Make the target pointer point at our internal target.

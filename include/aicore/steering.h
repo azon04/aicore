@@ -88,6 +88,131 @@ namespace aicore
     };
 
 	/**
+	* The arrive steering behaviour
+	* Stop when reach the target
+	*/
+	class Arrive : public Seek
+	{
+	public:
+		/* Holds the radius for arriving at the target */
+		float targetRadius;
+
+		/* Holds the radius for beginning to slow down */
+		float slowRadius;
+
+		/**
+		* Works out the desired steering and writes it into the given
+		* steering output structure.
+		*/
+		virtual void getSteering(SteeringOutput* output);
+	};
+
+	/**
+	* Velocity Matching.
+	**/
+	class  VelocityMatch : public Seek
+	{
+		/* Target Velocity */
+		Vector3 *targetVelocity;
+
+		/* Time to target */
+		real timeToTarget = 0.1;
+
+		/**
+		* Works out the desired steering and writes it into the given
+		* steering output structure.
+		*/
+		virtual void getSteering(SteeringOutput* output);
+	};
+
+	/**
+	* The seek steering behaviour takes a target and aims right for
+	* it with maximum acceleration.
+	*/
+	class Align : public SteeringBehaviour
+	{
+	public:
+		/**
+		* The target may be any vector (i.e. it might be something
+		* that has no orientation, such as a point in space).
+		*/
+		real* targetOrientation;
+
+		/**
+		* The maximum angular acceleration and rotation that can 
+		* be used to reach the target.
+		*/
+		real maxAngularAcceleration;
+		real maxRotation;
+
+		/**
+		* The radius for beginning to slow down
+		*/
+		real slowRadius;
+
+		/**
+		* The radius for arriving at the target
+		*/
+		real targetRadius;
+
+		/**
+		* Works out the desired steering and writes it into the given
+		* steering output structure.
+		*/
+		virtual void getSteering(SteeringOutput* output);
+	};
+
+	class Pursue : public SteeringBehaviour
+	{
+	public:
+		/**
+		* The target may be any vector (i.e. it might be something
+		* that has no orientation, such as a point in space).
+		*/
+		const Vector3 *target;
+
+		/* Target Velocity */
+		Vector3 *targetVelocity;
+
+		/* For Maximum Prediction time */
+		real maxPrediction;
+
+		/* For acceleration */
+		real maxAcceleration;
+
+		/**
+		* Works out the desired steering and writes it into the given
+		* steering output structure.
+		*/
+		virtual void getSteering(SteeringOutput* output);
+	};
+
+	class Evade : public SteeringBehaviour
+	{
+	public:
+		/**
+		* The target may be any vector (i.e. it might be something
+		* that has no orientation, such as a point in space).
+		*/
+		const Vector3 *target;
+
+		/* Target Velocity */
+		Vector3 *targetVelocity;
+
+		/* For Maximum Prediction time */
+		real maxPrediction;
+
+		/* For acceleration */
+		real maxAcceleration;
+
+		/**
+		* Works out the desired steering and writes it into the given
+		* steering output structure.
+		*/
+		virtual void getSteering(SteeringOutput* output);
+	};
+
+	/**
 	 * This subclass of seek is only intended as a base class for steering
 	 * behaviours that create their own internal target, rather than having
 	 * one assigned.
